@@ -13,11 +13,11 @@ as
 --
 -- =============================================================================
 procedure render
-    ( p_item   in            apex_plugin.t_item
-    , p_plugin in            apex_plugin.t_plugin
-    , p_param  in            apex_plugin.t_item_render_param
-    , p_result in out nocopy apex_plugin.t_item_render_result
-    )
+  ( p_item   in            apex_plugin.t_item
+  , p_plugin in            apex_plugin.t_plugin
+  , p_param  in            apex_plugin.t_item_render_param
+  , p_result in out nocopy apex_plugin.t_item_render_result
+  )
 as
     l_item_name_esc                 varchar2(4000)             := apex_escape.html_attribute(p_item.name);
 
@@ -51,6 +51,7 @@ as
     l_inline_check_icon             boolean                    := instr(p_item.attribute_04, 'enable-inline-icons')          > 0;
     l_expect_new_pwd                boolean                    := instr(p_item.attribute_04, 'new-password')                 > 0;
     l_is_confirmation_item          boolean                    := instr(p_item.attribute_04, 'is-confirmation-item')         > 0;
+    l_submit_on_enter               boolean                    := instr(p_item.attribute_04, 'submit-enter')                 > 0;
 
     -- autocomplete value
     l_autocomplete                  varchar2(100)              := case when l_expect_new_pwd then 'new-password' else 'current-password' end;
@@ -80,9 +81,14 @@ as
     l_items_to_disable             apex_t_varchar2             := nvl(apex_string.split(p_item.attribute_14,','), apex_t_varchar2());
     l_confirmation_item            p_item.attribute_15%type    := p_item.attribute_15;
 
+    l_check_length                 boolean                     := l_rule_minimum_length     and l_min_length             is not null and l_min_length             > 0;
+    l_check_num                    boolean                     := l_rule_numbers            and l_num_of_nums            is not null and l_num_of_nums            > 0;
+    l_check_caps                   boolean                     := l_rule_capital_letters    and l_num_of_capital_letters is not null and l_num_of_capital_letters > 0;
+    l_check_spec                   boolean                     := l_rule_special_characters and l_num_of_spec_chars      is not null and l_num_of_spec_chars      > 0;
+
 begin
     --debug
-    if apex_application.g_debug
+    if apex_application.g_debug and substr(:DEBUG,6) >= 6
     then
         apex_plugin_util.debug_page_item
           ( p_plugin    => p_plugin
@@ -155,7 +161,7 @@ begin
             sys.htp.p('    <div class="fos-ap-constraints '|| l_rules_container_style ||' fos-ap-container fos-ap-container-'|| l_rules_container ||'">');
 
 
-            if l_rule_minimum_length
+            if l_check_length
             then
                 sys.htp.p('<div class="fos-ap-rule password-rule-length" name="FOSpwdLength">');
                 sys.htp.p('    <span class="fa fos-pwd-fail fos-pwd"></span>');
@@ -163,7 +169,7 @@ begin
                 sys.htp.p('</div>');
             end if;
 
-            if l_rule_numbers
+            if l_check_num
             then
                 sys.htp.p('<div class="fos-ap-rule password-rule-numbers" name="FOSpwdNums">');
                 sys.htp.p('    <span class="fa fos-pwd-fail fos-pwd"></span>');
@@ -171,7 +177,7 @@ begin
                 sys.htp.p('</div>');
             end if;
 
-            if l_rule_capital_letters
+            if l_check_caps
             then
                 sys.htp.p('<div class="fos-ap-rule password-rule-capital-letters" name="FOSpwdCapitals">');
                 sys.htp.p('    <span class="fa fos-pwd-fail fos-pwd"></span>');
@@ -179,7 +185,7 @@ begin
                 sys.htp.p('</div>');
             end if;
 
-            if l_rule_special_characters
+            if l_check_spec
             then
                 sys.htp.p('<div class="fos-ap-rule password-rule-special-characters" name="FOSpwdSpecChars">');
                 sys.htp.p('    <span class="fa fos-pwd-fail fos-pwd"></span>');
@@ -209,10 +215,11 @@ begin
     apex_json.write('confItem'           , l_confirmation_item       );
     apex_json.write('inlineIcon'         , l_inline_check_icon       );
     apex_json.write('isConfirmationItem' , l_is_confirmation_item    );
+    apex_json.write('submitOnEnter'      , l_submit_on_enter         );
 
     apex_json.open_object('rules');
 
-    if l_rule_minimum_length
+    if l_check_length
     then
         apex_json.open_object('pwdLength'                            );
         apex_json.open_object('attributes'                           );
@@ -221,7 +228,7 @@ begin
         apex_json.close_object;
     end if;
 
-    if l_rule_numbers
+    if l_check_num
     then
         apex_json.open_object('pwdNums'                              );
         apex_json.open_object('attributes'                           );
@@ -230,7 +237,7 @@ begin
         apex_json.close_object;
     end if;
 
-    if l_rule_capital_letters
+    if l_check_caps
     then
         apex_json.open_object('pwdCapitals');
         apex_json.open_object('attributes');
@@ -239,7 +246,7 @@ begin
         apex_json.close_object;
     end if;
 
-    if l_rule_special_characters
+    if l_check_spec
     then
         apex_json.open_object('pwdSpecChars');
         apex_json.open_object('attributes');
@@ -259,11 +266,11 @@ begin
 end render;
 
 procedure validate
-    ( p_item     in apex_plugin.t_item
-    , p_plugin   in apex_plugin.t_plugin
-    , p_param    in apex_plugin.t_item_validation_param
-    , p_result   in out nocopy apex_plugin.t_item_validation_result
-    )
+  ( p_item     in apex_plugin.t_item
+  , p_plugin   in apex_plugin.t_plugin
+  , p_param    in apex_plugin.t_item_validation_param
+  , p_result   in out nocopy apex_plugin.t_item_validation_result
+  )
 as
     l_value                         p_param.value%type         := p_param.value;
     l_is_required                   boolean                    := p_item.is_required;
@@ -292,8 +299,12 @@ as
     l_capital_letters_msg           p_item.attribute_12%type   := p_item.attribute_13;
     l_capital_letters_msg_esc       varchar2(1000)             := replace(l_capital_letters_msg,'#MIN_CAPS#',l_num_of_capital_letters);
 
-
     l_confirmation_item             p_item.attribute_15%type   := p_item.attribute_15;
+
+    l_check_length                 boolean                     := l_rule_minimum_length     and l_min_length             is not null and l_min_length             > 0;
+    l_check_num                    boolean                     := l_rule_numbers            and l_num_of_nums            is not null and l_num_of_nums            > 0;
+    l_check_caps                   boolean                     := l_rule_capital_letters    and l_num_of_capital_letters is not null and l_num_of_capital_letters > 0;
+    l_check_spec                   boolean                     := l_rule_special_characters and l_num_of_spec_chars      is not null and l_num_of_spec_chars      > 0;
 begin
     -- set the position for the error message
     p_result.display_location := apex_plugin.c_inline_with_field;
@@ -306,7 +317,7 @@ begin
     end if;
 
     -- check the length
-    if l_rule_minimum_length
+    if l_check_length
     then
         if length(l_value) < l_min_length
         then
@@ -316,7 +327,7 @@ begin
     end if;
 
     -- check if it contains numbers
-    if l_rule_numbers
+    if l_check_num
     then
         if not regexp_like(l_value,'([0-9].*){'|| l_num_of_nums ||',}')
         then
@@ -326,7 +337,7 @@ begin
     end if;
 
     -- check for spec characters
-    if l_rule_special_characters
+    if l_check_spec
     then
         l_right_bracket := instr(l_list_of_spec_chars, ']');
         if l_right_bracket > 0
@@ -342,7 +353,7 @@ begin
     end if;
 
     -- check for capital letters
-    if l_rule_capital_letters
+    if l_check_caps
     then
         if not regexp_like(l_value,'([A-Z].*){'|| l_num_of_capital_letters ||',}')
         then
