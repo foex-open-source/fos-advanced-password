@@ -256,7 +256,7 @@ FOS.item.advancedPassword.init = function (config, initJs) {
 
 	// show error if invalid
 	if (config.showErrorIfInc && validateRequired) {
-		inputField.on('focusout', function (e) {
+		inputField.on('change', function (e) {
 			isEveryRulePassed(function () {
 				apex.message.showErrors({
 					type: 'error',
@@ -346,7 +346,7 @@ FOS.item.advancedPassword.init = function (config, initJs) {
 			}
 		});
 
-		confItem.on('focusout', function (e) {
+		confItem.on('change', function (e) {
 			let itemValue = inputField.val();
 			if (e.target.value != itemValue) {
 				if (config.showErrorIfInc) {
